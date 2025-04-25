@@ -151,19 +151,17 @@ func (cc *ControlConn) Start(wg *sync.WaitGroup, ctx context.Context) error {
 		lastOpenSuccessful := true
 		reconnect := false
 		for cc.context.Err() == nil {
-			select {
-			case <-cc.reconnectCh:
-				reconnect = true
-			default:
-			}
-
-			if reconnect {
-				reconnect = false
-				cc.Close()
+			if !reconnect {
+				select {
+				case <-cc.reconnectCh:
+					reconnect = true
+				default:
+				}
 			}
 
 			conn, _ := cc.GetConnAndContactPoint()
-			if conn == nil {
+			if reconnect {
+				reconnect = false
 				useContactPointsOnly := false
 				if !lastOpenSuccessful {
 					useContactPointsOnly = true
@@ -204,7 +202,7 @@ func (cc *ControlConn) Start(wg *sync.WaitGroup, ctx context.Context) error {
 			if err != nil {
 				log.Warnf("Heartbeat failed on %v. Closing and opening a new connection: %v.", conn, err)
 				cc.IncrementFailureCounter()
-				cc.Close()
+				reconnect = true
 			} else {
 				logMsg := "Heartbeat successful on %v, waiting %v until next heartbeat."
 				if cc.ReadFailureCounter() != 0 {
@@ -252,10 +250,10 @@ func (cc *ControlConn) ReadFailureCounter() int {
 
 func (cc *ControlConn) Open(contactPointsOnly bool, ctx context.Context) (CqlConnection, error) {
 	oldConn, _ := cc.GetConnAndContactPoint()
-	if oldConn != nil {
-		cc.Close()
-		oldConn = nil
-	}
+	//if oldConn != nil {
+	//	cc.Close()
+	//	oldConn = nil
+	//}
 
 	var conn CqlConnection
 	var endpoint Endpoint
@@ -421,6 +419,10 @@ func (cc *ControlConn) Close() {
 	cc.cqlConn = nil
 	cc.cqlConnLock.Unlock()
 
+	cc.closeInternal(conn)
+}
+
+func (cc *ControlConn) closeInternal(conn CqlConnection) {
 	if conn != nil {
 		err := conn.Close()
 		if err != nil {
@@ -651,11 +653,13 @@ func (cc *ControlConn) GetCurrentContactPoint() Endpoint {
 	return contactPoint
 }
 
+// Atomically swaps control connection. If old connection is not nil, it will be closed
 func (cc *ControlConn) setConn(oldConn CqlConnection, newConn CqlConnection, newContactPoint Endpoint) (CqlConnection, Endpoint) {
 	cc.cqlConnLock.Lock()
 	defer cc.cqlConnLock.Unlock()
 	if cc.cqlConn == oldConn || oldConn == nil {
 		cc.cqlConn = newConn
+		cc.closeInternal(oldConn)
 		cc.currentContactPoint = newContactPoint
 		authEnabled, err := newConn.IsAuthEnabled()
 		if err != nil {
