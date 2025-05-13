@@ -69,6 +69,20 @@ var (
 	ReadModeDualAsyncOnSecondary = ReadMode{"DUAL_ASYNC_ON_SECONDARY"}
 )
 
+type WriteMode struct {
+	slug string
+}
+
+func (r WriteMode) String() string {
+	return r.slug
+}
+
+var (
+	WriteModeUndefined            = WriteMode{""}
+	WriteModeDualSync             = WriteMode{"DUAL_SYNC"}
+	WriteModeDualAsyncOnSecondary = WriteMode{"DUAL_ASYNC_ON_SECONDARY"}
+)
+
 type SystemQueriesMode struct {
 	slug string
 }
