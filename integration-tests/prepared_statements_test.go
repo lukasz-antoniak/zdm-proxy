@@ -948,7 +948,11 @@ func TestUnpreparedIdReplacement(t *testing.T) {
 					}
 					require.GreaterOrEqual(t, unpreparedResults, 0)
 					require.LessOrEqual(t, unpreparedResults, len(targetExecuteMessages))
-					require.Equal(t, len(targetExecuteMessages)-unpreparedResults, targetCtx["ROWS_"+string(targetPreparedId)])
+					var ctxCount interface{}
+					if ctxCount, ok = targetCtx["ROWS_"+string(targetPreparedId)]; !ok {
+						ctxCount = 0
+					}
+					require.Equal(t, len(targetExecuteMessages)-unpreparedResults, ctxCount)
 				} else if test.targetUnprepared {
 					require.Equal(t, 1, targetCtx["UNPREPARED_"+string(targetPreparedId)])
 					require.Equal(t, 1, targetCtx["ROWS_"+string(targetPreparedId)])
