@@ -79,8 +79,8 @@ func TestInspectFrame(t *testing.T) {
 		expected interface{}
 	}{
 		// QUERY
-		{"OpCodeQuery SELECT", args{mockQueryFrame(t, "SELECT blah FROM ks1.t2"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewGenericRequestInfo(forwardToOrigin, true, true)},
-		{"OpCodeQuery SELECT primaryClusterTarget", args{mockQueryFrame(t, "SELECT blah FROM ks1.t1"), []*term{}, primaryClusterTarget, forwardSystemQueriesToTarget, forwardAuthToOrigin}, NewGenericRequestInfo(forwardToTarget, true, true)},
+		{"OpCodeQuery SELECT", args{mockQueryFrame(t, "SELECT blah FROM ks1.t2"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewGenericRequestInfo(forwardToOrigin, false, true)},
+		{"OpCodeQuery SELECT primaryClusterTarget", args{mockQueryFrame(t, "SELECT blah FROM ks1.t1"), []*term{}, primaryClusterTarget, forwardSystemQueriesToTarget, forwardAuthToOrigin}, NewGenericRequestInfo(forwardToTarget, false, true)},
 		{"OpCodeQuery SELECT system.local", args{mockQueryFrame(t, "SELECT * FROM system.local"), []*term{}, primaryClusterTarget, forwardSystemQueriesToTarget, forwardAuthToOrigin}, NewInterceptedRequestInfo(local, newStarSelectClause())},
 		{"OpCodeQuery SELECT system.local", args{mockQueryFrame(t, "SELECT * FROM system.local"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToTarget, forwardAuthToOrigin}, NewInterceptedRequestInfo(local, newStarSelectClause())},
 		{"OpCodeQuery SELECT system.local forwardSystemQueriesToOrigin", args{mockQueryFrame(t, "SELECT * FROM system.local"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewInterceptedRequestInfo(local, newStarSelectClause())},
@@ -98,7 +98,7 @@ func TestInspectFrame(t *testing.T) {
 		{"OpCodeQuery CALL DseGraphRpc.getSchemaBlob(?)", args{mockQueryFrame(t, "CALL DseGraphRpc.getSchemaBlob(?)"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewGenericRequestInfo(forwardToBoth, false, true)},
 
 		// PREPARE
-		{"OpCodePrepare SELECT", args{mockPrepareFrame(t, "SELECT blah FROM ks1.t1"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewPrepareRequestInfo(NewGenericRequestInfo(forwardToOrigin, true, true), []*term{}, false, "SELECT blah FROM ks1.t1", "")},
+		{"OpCodePrepare SELECT", args{mockPrepareFrame(t, "SELECT blah FROM ks1.t1"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewPrepareRequestInfo(NewGenericRequestInfo(forwardToOrigin, false, true), []*term{}, false, "SELECT blah FROM ks1.t1", "")},
 		{"OpCodePrepare SELECT system.local forwardSystemQueriesToOrigin", args{mockPrepareFrame(t, "SELECT * FROM system.local"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewPrepareRequestInfo(NewInterceptedRequestInfo(local, newStarSelectClause()), []*term{}, false, "SELECT * FROM system.local", "")},
 		{"OpCodePrepare SELECT system.peers forwardSystemQueriesToOrigin", args{mockPrepareFrame(t, "SELECT * FROM system.peers"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToOrigin, forwardAuthToOrigin}, NewPrepareRequestInfo(NewInterceptedRequestInfo(peersV1, newStarSelectClause()), []*term{}, false, "SELECT * FROM system.peers", "")},
 		{"OpCodePrepare SELECT system.local", args{mockPrepareFrame(t, "SELECT * FROM system.local"), []*term{}, primaryClusterOrigin, forwardSystemQueriesToTarget, forwardAuthToOrigin}, NewPrepareRequestInfo(NewInterceptedRequestInfo(local, newStarSelectClause()), []*term{}, false, "SELECT * FROM system.local", "")},
@@ -141,7 +141,7 @@ func TestInspectFrame(t *testing.T) {
 			actual, err := buildRequestInfo(&frameDecodeContext{frame: tt.args.f}, []*statementReplacedTerms{{
 				statementIndex: 0,
 				replacedTerms:  tt.args.replacedTerms,
-			}}, psCache, mh, km, tt.args.primaryCluster, tt.args.forwardSystemQueriesToTarget, true, tt.args.forwardAuthToTarget, timeUuidGenerator)
+			}}, psCache, mh, km, tt.args.primaryCluster, common.ReadModePrimaryOnly, common.WriteModeDualSync, tt.args.forwardSystemQueriesToTarget, true, tt.args.forwardAuthToTarget, timeUuidGenerator)
 			if err != nil {
 				if !reflect.DeepEqual(err.Error(), tt.expected) {
 					t.Errorf("buildRequestInfo() actual = %v, expected %v", err, tt.expected)

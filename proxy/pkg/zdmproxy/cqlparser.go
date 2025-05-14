@@ -70,6 +70,8 @@ func buildRequestInfo(
 	mh *metrics.MetricHandler,
 	currentKeyspaceName string,
 	primaryCluster common.ClusterType,
+	readMode common.ReadMode,
+	writeMode common.WriteMode,
 	forwardSystemQueriesToTarget bool,
 	virtualizationEnabled bool,
 	forwardAuthToTarget bool,
@@ -83,7 +85,7 @@ func buildRequestInfo(
 			return nil, fmt.Errorf("could not inspect QUERY frame: %w", err)
 		}
 		return getRequestInfoFromQueryInfo(
-			frameContext.GetRawFrame(), primaryCluster,
+			frameContext.GetRawFrame(), primaryCluster, readMode, writeMode,
 			forwardSystemQueriesToTarget, virtualizationEnabled, stmtQueryData.queryData), nil
 	case primitive.OpCodePrepare:
 		stmtQueryData, err := frameContext.GetOrInspectStatement(currentKeyspaceName, timeUuidGenerator)
@@ -99,7 +101,7 @@ func buildRequestInfo(
 			return nil, fmt.Errorf("unexpected message type when decoding PREPARE message: %v", decodedFrame.Body.Message)
 		}
 		baseRequestInfo := getRequestInfoFromQueryInfo(
-			frameContext.GetRawFrame(), primaryCluster,
+			frameContext.GetRawFrame(), primaryCluster, readMode, writeMode,
 			forwardSystemQueriesToTarget, virtualizationEnabled, stmtQueryData.queryData)
 		replacedTerms := make([]*term, 0)
 		if len(stmtsReplacedTerms) > 1 {
@@ -178,6 +180,8 @@ func getPreparedData(
 func getRequestInfoFromQueryInfo(
 	f *frame.RawFrame,
 	primaryCluster common.ClusterType,
+	readMode common.ReadMode,
+	writeMode common.WriteMode,
 	forwardSystemQueriesToTarget bool,
 	virtualizationEnabled bool,
 	queryInfo QueryInfo) RequestInfo {
@@ -209,7 +213,7 @@ func getRequestInfoFromQueryInfo(
 				forwardDecision = forwardToOrigin
 			}
 		} else {
-			sendAlsoToAsync = true
+			sendAlsoToAsync = readMode == common.ReadModeDualAsyncOnSecondary
 			if primaryCluster == common.ClusterTypeTarget {
 				forwardDecision = forwardToTarget
 			} else {
@@ -226,7 +230,16 @@ func getRequestInfoFromQueryInfo(
 			sendAlsoToAsync = false
 		}
 	} else {
-		sendAlsoToAsync = false
+		if writeMode == common.WriteModeDualAsyncOnSecondary {
+			sendAlsoToAsync = true
+			if primaryCluster == common.ClusterTypeTarget {
+				forwardDecision = forwardToTarget
+			} else {
+				forwardDecision = forwardToOrigin
+			}
+		} else {
+			sendAlsoToAsync = false
+		}
 	}
 
 	log.Tracef("Forward decision: %s", forwardDecision)
