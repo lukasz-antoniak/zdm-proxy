@@ -107,6 +107,8 @@ type ClientHandler struct {
 	targetObserver *protocolEventObserverImpl
 
 	primaryCluster               common.ClusterType
+	readMode                     common.ReadMode
+	writeMode                    common.WriteMode
 	forwardSystemQueriesToTarget bool
 	forwardAuthToTarget          bool
 	targetCredsOnClientRequest   bool
@@ -147,13 +149,14 @@ func NewClientHandler(
 	timeUuidGenerator TimeUuidGenerator,
 	rateLimiters *RateLimiters,
 	readMode common.ReadMode,
+	writeMode common.WriteMode,
 	primaryCluster common.ClusterType,
 	systemQueriesMode common.SystemQueriesMode) (*ClientHandler, error) {
 
 	originEndpointId := originCassandraConnInfo.endpoint.GetEndpointIdentifier()
 	targetEndpointId := targetCassandraConnInfo.endpoint.GetEndpointIdentifier()
 	asyncEndpointId := ""
-	if readMode == common.ReadModeDualAsyncOnSecondary {
+	if readMode == common.ReadModeDualAsyncOnSecondary || writeMode == common.WriteModeDualAsyncOnSecondary {
 		if primaryCluster == common.ClusterTypeTarget {
 			asyncEndpointId = originEndpointId
 		} else {
@@ -235,7 +238,7 @@ func NewClientHandler(
 
 	asyncPendingRequests := newPendingRequests(nodeMetrics)
 	var asyncConnector *ClusterConnector
-	if readMode == common.ReadModeDualAsyncOnSecondary {
+	if readMode == common.ReadModeDualAsyncOnSecondary || writeMode == common.WriteModeDualAsyncOnSecondary {
 		var asyncConnInfo *ClusterConnectionInfo
 		if primaryCluster == common.ClusterTypeTarget {
 			asyncConnInfo = originCassandraConnInfo
@@ -322,6 +325,8 @@ func NewClientHandler(
 		originObserver:                       originObserver,
 		targetObserver:                       targetObserver,
 		primaryCluster:                       primaryCluster,
+		readMode:                             readMode,
+		writeMode:                            writeMode,
 		forwardSystemQueriesToTarget:         systemQueriesMode == common.SystemQueriesModeTarget,
 		forwardAuthToTarget:                  forwardAuthToTarget,
 		targetCredsOnClientRequest:           targetCredsOnClientRequest,
@@ -1373,7 +1378,7 @@ func (ch *ClientHandler) forwardRequest(request *frame.RawFrame, customResponseC
 		return err
 	}
 	requestInfo, err := buildRequestInfo(
-		context, replacedTerms, ch.preparedStatementCache, ch.metricHandler, currentKeyspace, ch.primaryCluster,
+		context, replacedTerms, ch.preparedStatementCache, ch.metricHandler, currentKeyspace, ch.primaryCluster, ch.readMode, ch.writeMode,
 		ch.forwardSystemQueriesToTarget, ch.topologyConfig.VirtualizationEnabled, ch.forwardAuthToTarget, ch.timeUuidGenerator)
 
 	switch requestInfo.(type) {

@@ -35,6 +35,7 @@ type ZdmProxy struct {
 
 	primaryCluster    common.ClusterType
 	readMode          common.ReadMode
+	writeMode         common.WriteMode
 	systemQueriesMode common.SystemQueriesMode
 
 	proxyRand *rand.Rand
@@ -322,6 +323,11 @@ func (p *ZdmProxy) initializeGlobalStructures() error {
 		return err
 	}
 
+	p.writeMode, err = p.Conf.ParseWriteMode()
+	if err != nil {
+		return err
+	}
+
 	p.primaryCluster, err = p.Conf.ParsePrimaryCluster()
 	if err != nil {
 		return err
@@ -572,6 +578,7 @@ func (p *ZdmProxy) handleNewConnection(clientConn net.Conn) {
 		p.timeUuidGenerator,
 		p.rateLimiters,
 		p.readMode,
+		p.writeMode,
 		p.primaryCluster,
 		p.systemQueriesMode)
 

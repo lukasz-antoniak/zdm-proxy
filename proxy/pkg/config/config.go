@@ -22,6 +22,7 @@ type Config struct {
 
 	PrimaryCluster                string `default:"ORIGIN" split_words:"true" yaml:"primary_cluster"`
 	ReadMode                      string `default:"PRIMARY_ONLY" split_words:"true" yaml:"read_mode"`
+	WriteMode                     string `default:"DUAL_SYNC" split_words:"true" yaml:"write_mode"`
 	ReplaceCqlFunctions           bool   `default:"false" split_words:"true" yaml:"replace_cql_functions"`
 	AsyncHandshakeTimeoutMs       int    `default:"4000" split_words:"true" yaml:"async_handshake_timeout_ms"`
 	LogLevel                      string `default:"INFO" split_words:"true" yaml:"log_level"`
@@ -323,6 +324,11 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	_, err = c.ParseWriteMode()
+	if err != nil {
+		return err
+	}
+
 	_, err = c.ParseControlConnMaxProtocolVersion()
 	if err != nil {
 		return err
@@ -368,6 +374,9 @@ func (c *Config) ParsePrimaryCluster() (common.ClusterType, error) {
 const (
 	ReadModePrimaryOnly          = "PRIMARY_ONLY"
 	ReadModeDualAsyncOnSecondary = "DUAL_ASYNC_ON_SECONDARY"
+
+	WriteModeDualSync             = "DUAL_SYNC"
+	WriteModeDualAsyncOnSecondary = "DUAL_ASYNC_ON_SECONDARY"
 )
 
 func (c *Config) ParseReadMode() (common.ReadMode, error) {
@@ -379,6 +388,15 @@ func (c *Config) ParseReadMode() (common.ReadMode, error) {
 	default:
 		return common.ReadModeUndefined, fmt.Errorf("invalid value for ZDM_READ_MODE; possible values are: %v and %v",
 			ReadModePrimaryOnly, ReadModeDualAsyncOnSecondary)
+	}
+}
+
+func (c *Config) ParseWriteMode() (common.WriteMode, error) {
+	switch strings.ToUpper(c.WriteMode) {
+	case WriteModeDualAsyncOnSecondary:
+		return common.WriteModeDualAsyncOnSecondary, nil
+	default:
+		return common.WriteModeDualSync, nil
 	}
 }
 

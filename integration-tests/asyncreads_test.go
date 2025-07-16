@@ -189,7 +189,7 @@ func TestAsyncExhaustedStreamIds(t *testing.T) {
 	require.Less(t, time.Now().Sub(now).Seconds(), float64(5))
 }
 
-func TestAsyncReadsRequestTypes(t *testing.T) {
+func TestAsyncReadsWritesRequestTypes(t *testing.T) {
 
 	tests := []*struct {
 		name                   string
@@ -250,7 +250,7 @@ func TestAsyncReadsRequestTypes(t *testing.T) {
 			expectedOpCode:         primitive.OpCodeResult,
 			sentPrimary:            true,
 			sentSecondary:          true,
-			sentAsync:              true,
+			sentAsync:              false,
 			primedQuery:            nil,
 			prepared:               true,
 			sentExecuteToPrimary:   true,
@@ -431,6 +431,7 @@ func TestAsyncReadsRequestTypes(t *testing.T) {
 
 	c := setup.NewTestConfig(testSetup.Origin.GetInitialContactPoint(), testSetup.Target.GetInitialContactPoint())
 	c.ReadMode = config.ReadModeDualAsyncOnSecondary
+	c.WriteMode = config.WriteModeDualAsyncOnSecondary
 
 	c.PrimaryCluster = config.PrimaryClusterTarget
 	t.Run("ForwardReadsToTarget", func(t *testing.T) {
