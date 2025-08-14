@@ -1983,13 +1983,34 @@ func (ch *ClientHandler) aggregateAndTrackResponses(
 	log.Tracef("Aggregating responses. %v opcode %d, %v opcode %d",
 		common.ClusterTypeOrigin, originOpCode, common.ClusterTypeTarget, responseFromTargetCassandra.Header.OpCode)
 
+	if originOpCode == primitive.OpCodeSupported {
+		// OPTIONS request can be treated as heartbeat, so we still forward it to both clusters,
+		// but response returned to the client contains only options supported by everyone
+		log.Tracef("Aggregated response: sending back modified response with opcode %d", originOpCode)
+		optsOrig := ch.originControlConn.GetSupportedResponse().Options
+		optsTarg := ch.targetControlConn.GetSupportedResponse().Options
+		newHeader := responseFromTargetCassandra.Header.DeepCopy()
+		newBody := &frame.Body{
+			Message: &message.Supported{
+				Options: commonSupportOptions(optsOrig, optsTarg),
+			},
+		}
+		buf := &bytes.Buffer{}
+		err := defaultCodec.EncodeBody(newHeader, newBody, buf)
+		if err != nil {
+			log.Errorf("Failed to encode OPTIONS body: %v", err)
+			return responseFromTargetCassandra, common.ClusterTypeTarget
+		}
+		newResponse := &frame.RawFrame{
+			Header: newHeader,
+			Body:   buf.Bytes(),
+		}
+		return newResponse, common.ClusterTypeTarget
+	}
+
 	// aggregate responses and update relevant aggregate metrics for general failed or successful responses
 	if isResponseSuccessful(responseFromOriginCassandra) && isResponseSuccessful(responseFromTargetCassandra) {
-		if originOpCode == primitive.OpCodeSupported {
-			log.Tracef("Aggregated response: both successes, sending back %v response with opcode %d",
-				common.ClusterTypeTarget, originOpCode)
-			return responseFromTargetCassandra, common.ClusterTypeTarget
-		} else if request.Header.OpCode == primitive.OpCodePrepare {
+		if request.Header.OpCode == primitive.OpCodePrepare {
 			// special case for PREPARE requests to always return ORIGIN, even though the default handling for "BOTH" requests would be enough
 			return responseFromOriginCassandra, common.ClusterTypeOrigin
 		} else {
@@ -2392,4 +2413,35 @@ func minProtoVer(version1 primitive.ProtocolVersion, version2 primitive.Protocol
 		return version1
 	}
 	return version2
+}
+
+// Copies all options form target map, but COMPRESSION key contains only algorithms supported by both clusters
+func commonSupportOptions(optsOrig map[string][]string, optsTarg map[string][]string) map[string][]string {
+	result := make(map[string][]string)
+	for k, vt := range optsTarg {
+		if k == message.StartupOptionCompression {
+			// for COMPRESSION put only algorithms supported by both clusters
+			vo, ok := optsOrig[k]
+			if ok {
+				result[k] = sliceIntersection(vt, vo)
+			}
+		} else {
+			result[k] = vt
+		}
+	}
+	return result
+}
+
+func sliceIntersection(arr1 []string, arr2 []string) []string {
+	intersection := make([]string, 0)
+	set := make(map[string]bool)
+	for _, val := range arr1 {
+		set[val] = true
+	}
+	for _, val := range arr2 {
+		if set[val] {
+			intersection = append(intersection, val)
+		}
+	}
+	return intersection
 }
