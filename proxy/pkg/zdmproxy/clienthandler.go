@@ -1371,7 +1371,7 @@ func (ch *ClientHandler) handleRequest(f *frame.RawFrame) {
 	err := ch.forwardRequest(f, nil)
 
 	if err != nil {
-		log.Warnf("error sending request with opcode %02x and streamid %d: %s", f.Header.OpCode, f.Header.StreamId, err.Error())
+		log.Warnf("error sending request with opcode %v and streamid %d: %s", f.Header.OpCode, f.Header.StreamId, err.Error())
 		return
 	}
 }
@@ -1996,7 +1996,7 @@ func (ch *ClientHandler) aggregateAndTrackResponses(
 			},
 		}
 		buf := &bytes.Buffer{}
-		err := defaultCodec.EncodeBody(newHeader, newBody, buf)
+		err := ch.getCodec().EncodeBody(newHeader, newBody, buf)
 		if err != nil {
 			log.Errorf("Failed to encode OPTIONS body: %v", err)
 			return responseFromTargetCassandra, common.ClusterTypeTarget
