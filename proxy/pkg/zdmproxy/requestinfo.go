@@ -2,6 +2,12 @@ package zdmproxy
 
 import "fmt"
 
+// RequestInfo specifies routing strategy for the request.
+// GetForwardDecision() defines to which clusters request should be forwarded.
+// ShouldAlsoBeSentAsync() tells whether request should be also routed to asynchronous connector.
+// Most typical scenarios include:
+//   - forwarding decision to route synchronously to both clusters (forwardToBoth)
+//   - forwarding decision to one cluster (forwardToOrigin or forwardToTarget) and send async request returning true
 type RequestInfo interface {
 	GetForwardDecision() forwardDecision
 	ShouldAlsoBeSentAsync() bool
@@ -71,6 +77,11 @@ func (recv *PrepareRequestInfo) String() string {
 }
 
 func (recv *PrepareRequestInfo) ShouldAlsoBeSentAsync() bool {
+	if recv.GetForwardDecision() == forwardToBoth {
+		// if we already send PREPARE statement to both clusters synchronously
+		// then do not send it async
+		return false
+	}
 	return recv.baseRequestInfo.ShouldAlsoBeSentAsync()
 }
 

@@ -16,6 +16,8 @@ type params struct {
 	mh                           *metrics.MetricHandler
 	kn                           string
 	primaryCluster               common.ClusterType
+	readMode                     common.ReadMode
+	writeMode                    common.WriteMode
 	forwardSystemQueriesToTarget bool
 	forwardAuthToTarget          bool
 	virtualizationEnabled        bool
@@ -31,6 +33,8 @@ func getGeneralParamsForTests(t *testing.T) params {
 		mh:                           newFakeMetricHandler(),
 		kn:                           "",
 		primaryCluster:               common.ClusterTypeOrigin,
+		readMode:                     common.ReadModePrimaryOnly,
+		writeMode:                    common.WriteModeDualSync,
 		forwardSystemQueriesToTarget: false,
 		forwardAuthToTarget:          false,
 		virtualizationEnabled:        false,
@@ -80,6 +84,8 @@ func parseEncodedRequestForTests(queryRawFrame *frame.RawFrame, t *testing.T) (R
 		generalParams.mh,
 		generalParams.kn,
 		generalParams.primaryCluster,
+		generalParams.readMode,
+		generalParams.writeMode,
 		generalParams.forwardSystemQueriesToTarget,
 		generalParams.virtualizationEnabled,
 		generalParams.forwardAuthToTarget,
